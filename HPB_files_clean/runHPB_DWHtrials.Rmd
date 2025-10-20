@@ -1,0 +1,160 @@
+---
+title: "HPB trials"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r installation}
+#devtools::install_github("RHESSys/RHESSysIOinR")
+```
+
+
+```{r requiredlibraries}
+#these libraries load just fine in R w/in the container 
+library(tidyverse)
+library(RHESSysIOinR)
+library(ggpubr)
+
+```
+
+
+
+### Input files    
+Edit the **rhessys_ver** = path and file name to point to your new version of RHESSys    (in R chunk below)
+Unless new development changes are being made to the worldfile or flowtable, you will use the same input files.
+
+```{r setrunvars}
+
+## for testing
+setwd("repo/Testing")
+
+
+#rhessys_ver = "/Users/naomitague/Model/RHESSys/rhessys/rhessys7.3"
+#rhessys_ver = "/RHESSys/rhessys7.5" #from trials w/ Quinn
+rhessys_ver = "../../rhessys7.5" #new to point backwards to model
+worldfile = "worldfiles/w8TC.world"
+header = "worldfiles/w8TC.hdr"
+flowtable = "flowtables/w8TC.flow"
+tecfile = "tecfiles/tec.test" #can maybe ignore for now
+
+#testing worldfiles I remade form their spatial data
+rhessys_ver = "../../rhessys7.5" #new to point backwards to model
+worldfile = "w8TC_dwh4.world"
+#worldfile = "worldfiles/w8TC.world"
+header = "worldfiles/w8TC.hdr"
+#flowtable = "flowtables/w8TC.flow"
+flowtable = "w8TC_dwh4.flow"
+tecfile = "tecfiles/tec.test" #can maybe ignore for now
+
+
+
+
+#can run 'ls()' in powershell R to see wahts in the environment 
+
+
+# ### FOR CCR
+# setwd("repo")
+# 
+# rhessys_ver = "../rhessys7.5" #new to point backwards to model
+# worldfile = "CCR_files/worldfiles/ccr.world"
+# header = "CCR_files/worldfiles/ccr.hdr"
+# flowtable = "CCR_files/flowtables/ccr.flow"
+# tecfile = "tecfiles/tec.test" #can maybe ignore for now
+
+
+### FOR HPB
+setwd("repo/HPB_files_clean")
+
+rhessys_ver = "../../rhessys7.5" #new to point backwards to model
+worldfile = "worldfiles/hpb.world"
+header = "worldfiles/hpb.hdr"
+flowtable = "flowtables/hpb.flow"
+tecfile = "tecfiles/tec.test" #can maybe ignore for now
+
+
+
+```
+
+#### Creates the command line
+Currently this is just the same from the Testing script
+```{r commandlinegen}
+
+cmd1 = sprintf("%s -t %s -w %s -whdr %s -r %s",
+                     rhessys_ver, tecfile, worldfile, header, flowtable)
+# cmd2 = sprintf("-pre out/test -s 0.355794 651.390265 -sv 0.355794 651.390265 -svalt 1.083102 1.193924, -gw 0.116316 0.916922")
+cmd2 = sprintf("-pre out/HPBtest -s 0.355794 651.390265 -sv 0.355794 651.390265 -svalt 1.083102 1.193924, -gw 0.116316 0.916922")
+# cmd3 = sprintf("-st 1988 10 1 1 -ed 2000 10 1 1 -b -g")
+cmd3 = sprintf("-st 1950 10 1 1 -ed 2024 10 1 1 -b -g") #DWH changed year
+command_line = paste(cmd1,cmd2,cmd3)
+
+```
+
+### Run RHESSys
+```{r runrhessys}
+system(command_line)
+```
+
+
+### Read in the test results 
+
+
+```{r}
+getwd()
+# #read in files that were run on 20oct 12:48pm. Test name is legacy for command line above but run with these inputs
+# rhessys_ver = "../../rhessys7.5" #new to point backwards to model
+# worldfile = "worldfiles/hpb.world"
+# header = "worldfiles/hpb.hdr"
+# flowtable = "flowtables/hpb.flow"
+# tecfile = "tecfiles/tec.test" #can maybe ignore for now
+
+## this was originally output in repo/out, but i moved into dated folder
+hpb_test = readin_rhessys_output("out/HPBtest")
+#DWH trials 
+names(hpb_test)
+hpb_test_bd <- hpb_test$bd
+hpb_test_bdg <- hpb_test$bdg
+
+
+
+```
+
+Plot timeseries of outputs
+
+```{r}
+
+hpb_test_bdg |> 
+  mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
+  select(Date, basinID, lai, surfaceN, litrc, streamflow_DON, streamflow_DOC) |> 
+  pivot_longer(-c(1:2)) |> 
+  ggplot(aes(x = Date, y = value))+
+  geom_point()+
+  facet_wrap(~name, scales = "free_y")
+
+
+hpb_test_bd |> 
+  mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
+  select(Date, basinID, streamflow, baseflow, precip) |> 
+  pivot_longer(-c(1:2)) |> 
+  ggplot(aes(x = Date, y = value))+
+  geom_point()+
+  facet_wrap(~name, scales = "free_y")
+
+
+# #read in original climate files as a check
+# getwd()
+# 
+# ccrclim <- read_clim("clim/ccr_daily")
+# 
+# ccrclim |> 
+#   mutate(Date = ymd(date)) |> 
+#   filter(Date >= ymd("1989-10-01"),
+#          Date <= ymd("2000-09-30")) |> 
+#   select(Date, rain, tmin, tmax) |> 
+#   pivot_longer(-1)  |> 
+#   ggplot(aes(x = Date, y = value))+
+#   geom_point()+
+#   facet_wrap(~name, scales = "free_y")
+
+```
+

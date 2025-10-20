@@ -3,9 +3,9 @@
 .RData
 .Ruserdata
 CCR_RHESSys.Rproj
-GRASSccr/
-GRASSccr2/
-GRASShpb/
-Maps/
-Data_sources/
-out/
+/GRASSccr/
+/GRASSccr2/
+/GRASShpb/
+/Maps/
+/Data_sources/
+out
