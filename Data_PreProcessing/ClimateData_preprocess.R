@@ -4,7 +4,7 @@
 
 library(tidyverse)
 
-roa <- read.csv("./CCR_rhessys_data_comp/NOAA_ROA/4043554_NOAA_ROAdaily_1jan1948_2jun2025.csv")
+roa <- read.csv("./Data_sources/NOAA_ROA/4043554_NOAA_ROAdaily_1jan1948_2jun2025.csv")
 ##units are in inches and F, need to convert to meters and C
 df <- roa |>
   dplyr::select(DATE, PRCP, TMIN, TMAX) |>
@@ -40,9 +40,9 @@ write_variable_file <- function(df, var_name, file_name) {
 
 
 # Write climate files from precip, tmin, and tmax
-write_variable_file(df, "PRCP", "CCR_files/clim/ccr_daily.rain")
-write_variable_file(df, "TMIN", "CCR_files/clim/ccr_daily.tmin")
-write_variable_file(df, "TMAX", "CCR_files/clim/ccr_daily.tmax")
+write_variable_file(df, "PRCP", "ClimateFiles/clim/ccr_daily.rain")
+write_variable_file(df, "TMIN", "ClimateFiles/clim/ccr_daily.tmin")
+write_variable_file(df, "TMAX", "ClimateFiles/clim/ccr_daily.tmax")
 
 
 
@@ -66,6 +66,6 @@ ccr_base <- IOin_clim(
 
 getwd()
 
-write.table(ccr_base, file="CCR_files/clim/ccr_base", row.names=F, col.names=F, quote=F)
+write.table(ccr_base, file="ClimateFiles/clim/ccr_base", row.names=F, col.names=F, quote=F)
 
 
