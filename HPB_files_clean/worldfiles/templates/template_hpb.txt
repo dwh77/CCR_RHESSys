@@ -31,7 +31,7 @@ _world hpb_watershed.tiff 1
 				x			value 0.0
 				y			value 0.0
 				z			aver  hpb_dem.tiff
-				soil_parm_ID	        value 3.0	
+				soil_parm_ID	        value 8.0	
 				landuse_parm_ID		value 1.0
 				area			area	
 				slope			aver hpb_slope.tiff			
@@ -61,7 +61,7 @@ _world hpb_watershed.tiff 1
 				soil_cs.soil4c		value 0.0
 				patch_n_basestations		dvalue 0
 				_canopy_strata hpb_patches_basin1000_fill.tiff 1	
-					veg_parm_ID 		value 7	
+					veg_parm_ID 		value 3	
 					cover_fraction		value 1.0   
 					gap_fraction		value 0.0 	 	 
 					rootzone.depth		value 1.0

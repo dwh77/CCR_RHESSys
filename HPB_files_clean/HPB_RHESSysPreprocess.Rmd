@@ -74,7 +74,7 @@ Set the name and path for all function outputs. Suffixes of .world, .flow, and .
 ```{r}
 #this is just name that will appear before .world
 #this spits out .world and .flow in getwd(), so will move to right location
-name = "hpb"
+name = "hpb2"
 
 ```
 

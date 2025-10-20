@@ -26,9 +26,8 @@ Unless new development changes are being made to the worldfile or flowtable, you
 
 ```{r setrunvars}
 
-## for testing
+#### TESTING trials 
 setwd("repo/Testing")
-
 
 #rhessys_ver = "/Users/naomitague/Model/RHESSys/rhessys/rhessys7.3"
 #rhessys_ver = "/RHESSys/rhessys7.5" #from trials w/ Quinn
@@ -50,7 +49,7 @@ tecfile = "tecfiles/tec.test" #can maybe ignore for now
 
 
 
-#can run 'ls()' in powershell R to see wahts in the environment 
+#can run 'ls()' in powershell R to see what is in the environment 
 
 
 # ### FOR CCR
@@ -64,13 +63,24 @@ tecfile = "tecfiles/tec.test" #can maybe ignore for now
 
 
 ### FOR HPB
+#NOTE: currently using patches and worldfile based on a basin output and not patchcl, for speedier runs
 setwd("repo/HPB_files_clean")
 
+#with testing defs and veg
 rhessys_ver = "../../rhessys7.5" #new to point backwards to model
 worldfile = "worldfiles/hpb.world"
 header = "worldfiles/hpb.hdr"
 flowtable = "flowtables/hpb.flow"
-tecfile = "tecfiles/tec.test" #can maybe ignore for now
+tecfile = "tecfiles/tec.test" 
+
+
+#updating veg type to decid and soil to silty loam
+rhessys_ver = "../../rhessys7.5" #new to point backwards to model
+worldfile = "worldfiles/hpb2.world"
+header = "worldfiles/hpb.hdr"
+flowtable = "flowtables/hpb2.flow"
+tecfile = "tecfiles/tec.test" 
+
 
 
 
@@ -84,8 +94,8 @@ cmd1 = sprintf("%s -t %s -w %s -whdr %s -r %s",
                      rhessys_ver, tecfile, worldfile, header, flowtable)
 # cmd2 = sprintf("-pre out/test -s 0.355794 651.390265 -sv 0.355794 651.390265 -svalt 1.083102 1.193924, -gw 0.116316 0.916922")
 cmd2 = sprintf("-pre out/HPBtest -s 0.355794 651.390265 -sv 0.355794 651.390265 -svalt 1.083102 1.193924, -gw 0.116316 0.916922")
-# cmd3 = sprintf("-st 1988 10 1 1 -ed 2000 10 1 1 -b -g")
-cmd3 = sprintf("-st 1950 10 1 1 -ed 2024 10 1 1 -b -g") #DWH changed year
+cmd3 = sprintf("-st 1988 10 1 1 -ed 2000 10 1 1 -b -g")
+#cmd3 = sprintf("-st 1950 10 1 1 -ed 2024 10 1 1 -b -g") #DWH changed year
 command_line = paste(cmd1,cmd2,cmd3)
 
 ```
@@ -94,6 +104,8 @@ command_line = paste(cmd1,cmd2,cmd3)
 ```{r runrhessys}
 system(command_line)
 ```
+
+
 
 
 ### Read in the test results 
@@ -125,7 +137,7 @@ Plot timeseries of outputs
 
 hpb_test_bdg |> 
   mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
-  select(Date, basinID, lai, surfaceN, litrc, streamflow_DON, streamflow_DOC) |> 
+  select(Date, basinID, lai, surfaceN, litrc, plantc, soilc, streamflow_DON, streamflow_DOC) |> 
   pivot_longer(-c(1:2)) |> 
   ggplot(aes(x = Date, y = value))+
   geom_point()+
@@ -134,12 +146,19 @@ hpb_test_bdg |>
 
 hpb_test_bd |> 
   mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
-  select(Date, basinID, streamflow, baseflow, precip) |> 
+  mutate(et = evap + trans, 
+         precip_minus_et =  precip - et) |> 
+  select(Date, basinID, streamflow, baseflow, precip, evap, trans, et, precip_minus_et) |> 
   pivot_longer(-c(1:2)) |> 
   ggplot(aes(x = Date, y = value))+
   geom_point()+
+  #ylim(0,1)+
   facet_wrap(~name, scales = "free_y")
 
+
+
+vegchange
+vegsoilchange
 
 # #read in original climate files as a check
 # getwd()
