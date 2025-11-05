@@ -197,6 +197,29 @@ output |>
   facet_wrap(~name, scales = "free_y", nrow = 2)
 
 
+#HPB watershed is 1.76 miles^2
+#square miles to square meters = 1 square mile is 2.59e+6 square meters
+#streamflow from model is in mm (mm to m ==  mm/1000)
+rhessys_Q <- output |> 
+  filter(year > 2020) |> 
+  select(date, year, yd, streamflow, precip) |> 
+  mutate(streamflow_cmday = (streamflow / 1000 ) * (1.76 * 2590000),
+         streamflow_cms = streamflow_cmday / 86400
+         ) |> 
+  mutate(rhessys_Q_L_s = streamflow_cms * 1000)
+
+
+left_join(rhessys_Q, ccr_flowmate, by = c("date" = "Date")) |> 
+  rename(Flowmate_L_s = L_s) |> 
+  select(date, rhessys_Q_L_s, Flowmate_L_s) |> 
+  ggplot()+
+  geom_line(aes(x = date, y = rhessys_Q_L_s), size = 1)+
+  geom_point(aes(x = date, y = Flowmate_L_s), color = "red", size = 3)+
+  theme_bw()
+
+      
+
+
 
 
 ## Biogeochem Plots
@@ -212,6 +235,28 @@ output |>
 
 
   
+
+```
+
+## Look at CCR flowmate data
+
+```{r}
+Qedi <- read.csv("https://pasta.lternet.edu/package/data/eml/edi/454/8/5edb79c2676d7b351d9eec184799c7dd")
+qL1 <- read.csv("https://raw.githubusercontent.com/CareyLabVT/Reservoirs/refs/heads/master/Data/DataNotYetUploadedToEDI/Raw_Discharge/ManualDischarge_L1.csv")
+
+ccr_flowmate <- rbind(Qedi, qL1) |> 
+  filter(Reservoir == "CCR", 
+        Site == 101) |>
+  mutate(DateTime = ymd_hms(DateTime),
+          Date = as.Date(DateTime)) |> 
+  mutate(L_s = Flow_cms * 1000) 
+
+
+#plot of flowmate data 
+ccr_flowmate |> ggplot(aes(x = Date, y = L_s))+ 
+  geom_point()+ geom_line()
+
+
 
 ```
 
