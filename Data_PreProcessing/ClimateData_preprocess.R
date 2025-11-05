@@ -54,12 +54,14 @@ write_variable_file(df, "TMAX", "ClimateFiles/clim/ccr_daily.tmax")
 ## set up climate base file for CCR
 library(RHESSysIOinR)
 
+#lai changed from 3.5 to 2.0 based on: https://doi.org/10.3390/f9010026
+
 ccr_base <- IOin_clim(
   base_station_id = 101,
   x_coordinate = 100.0,
   y_coordinate = 100.0,
   z_coordinate = 346.7,
-  effective_lai = 3.5,
+  effective_lai = 2.0,
   screen_height = 2,
   daily_prefix = "/clim/ccr_daily")
 
