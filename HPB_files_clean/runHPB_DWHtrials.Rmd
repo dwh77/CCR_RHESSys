@@ -24,10 +24,10 @@ library(ggpubr)
 Edit the **rhessys_ver** = path and file name to point to your new version of RHESSys    (in R chunk below)
 Unless new development changes are being made to the worldfile or flowtable, you will use the same input files.
 
-```{r setrunvars}
-
+Testing data
+```{r}
 #### TESTING trials 
-setwd("repo/Testing")
+setwd("repo/Testing_rhessys_ExampleFiles")
 
 #rhessys_ver = "/Users/naomitague/Model/RHESSys/rhessys/rhessys7.3"
 #rhessys_ver = "/RHESSys/rhessys7.5" #from trials w/ Quinn
@@ -35,7 +35,7 @@ rhessys_ver = "../../rhessys7.5" #new to point backwards to model
 worldfile = "worldfiles/w8TC.world"
 header = "worldfiles/w8TC.hdr"
 flowtable = "flowtables/w8TC.flow"
-tecfile = "tecfiles/tec.test" #can maybe ignore for now
+tecfile = "tecfiles/tec.test" 
 
 #testing worldfiles I remade form their spatial data
 rhessys_ver = "../../rhessys7.5" #new to point backwards to model
@@ -44,10 +44,14 @@ worldfile = "w8TC_dwh4.world"
 header = "worldfiles/w8TC.hdr"
 #flowtable = "flowtables/w8TC.flow"
 flowtable = "w8TC_dwh4.flow"
-tecfile = "tecfiles/tec.test" #can maybe ignore for now
+tecfile = "tecfiles/tec.test" 
 
 
+```
 
+
+HPB data
+```{r setrunvars}
 
 #can run 'ls()' in powershell R to see what is in the environment 
 
@@ -67,12 +71,13 @@ tecfile = "tecfiles/tec.test" #can maybe ignore for now
 setwd("repo/HPB_files_clean")
 
 #with testing defs and veg
-rhessys_ver = "../../rhessys7.5" #new to point backwards to model
-worldfile = "worldfiles/hpb.world"
-header = "worldfiles/hpb.hdr"
-flowtable = "flowtables/hpb.flow"
-tecfile = "tecfiles/tec.test" 
+# rhessys_ver = "../../rhessys7.5" #new to point backwards to model
+# worldfile = "worldfiles/hpb.world"
+# header = "worldfiles/hpb.hdr"
+# flowtable = "flowtables/hpb.flow"
+# tecfile = "tecfiles/tec.test" 
 
+setwd("repo/HPB_files_clean")
 
 #updating veg type to decid and soil to silty loam
 rhessys_ver = "../../rhessys7.5" #new to point backwards to model
@@ -90,12 +95,18 @@ tecfile = "tecfiles/tec.test"
 Currently this is just the same from the Testing script
 ```{r commandlinegen}
 
+rhessys_ver = "../../rhessys7.5" #new to point backwards to model
+worldfile = "worldfiles/hpb2.world"
+header = "worldfiles/hpb.hdr"
+flowtable = "flowtables/hpb2.flow"
+tecfile = "tecfiles/tec.test" 
+
 cmd1 = sprintf("%s -t %s -w %s -whdr %s -r %s",
                      rhessys_ver, tecfile, worldfile, header, flowtable)
-# cmd2 = sprintf("-pre out/test -s 0.355794 651.390265 -sv 0.355794 651.390265 -svalt 1.083102 1.193924, -gw 0.116316 0.916922")
-cmd2 = sprintf("-pre out/HPBtest -s 0.355794 651.390265 -sv 0.355794 651.390265 -svalt 1.083102 1.193924, -gw 0.116316 0.916922")
-cmd3 = sprintf("-st 1988 10 1 1 -ed 2000 10 1 1 -b -g")
-#cmd3 = sprintf("-st 1950 10 1 1 -ed 2024 10 1 1 -b -g") #DWH changed year
+ cmd2 = sprintf("-pre out/HPBtest -s 0.355794 651.390265 -sv 0.355794 651.390265 -svalt 1.083102 1.193924, -gw 0.116316 0.916922")
+ #cmd2 = sprintf("-pre out/HPBtest -s 1 2000 -sv 1 2000 -svalt 1 2000, -gw 3 3")
+cmd3 = sprintf("-st 1950 10 1 1 -ed 2024 10 1 1 -b -g")
+#cmd3 = sprintf("-st 1960 10 1 1 -ed 2010 10 1 1 -b -g") #DWH changed year
 command_line = paste(cmd1,cmd2,cmd3)
 
 ```
@@ -106,30 +117,86 @@ system(command_line)
 ```
 
 
-
-
 ### Read in the test results 
 
 
 ```{r}
 getwd()
-# #read in files that were run on 20oct 12:48pm. Test name is legacy for command line above but run with these inputs
+## inputs used for output below
+#updating veg type to decid and soil to silty loam
 # rhessys_ver = "../../rhessys7.5" #new to point backwards to model
-# worldfile = "worldfiles/hpb.world"
+# worldfile = "worldfiles/hpb2.world"
 # header = "worldfiles/hpb.hdr"
-# flowtable = "flowtables/hpb.flow"
-# tecfile = "tecfiles/tec.test" #can maybe ignore for now
+# flowtable = "flowtables/hpb2.flow"
+# tecfile = "tecfiles/tec.test" 
 
 ## this was originally output in repo/out, but i moved into dated folder
-hpb_test = readin_rhessys_output("out/HPBtest")
+#hpb_test = readin_rhessys_output("../out/hpb_19oct25/test") #first run
+hpb_test = readin_rhessys_output("out/3nov25_400/HPBtest")
+#hpb_test = readin_rhessys_output("out/HPBtest") #most recent run that hasn't been moved to a folder
+
 #DWH trials 
 names(hpb_test)
 hpb_test_bd <- hpb_test$bd
 hpb_test_bdg <- hpb_test$bdg
 
+output <- left_join(hpb_test_bd, hpb_test_bdg, by = c("day", "month", "year", "basinID", "wy", "yd", "date")) |> 
+  select(day, month, year, date, yd, wy, basinID, everything())
+
+## Figuring out what duped columns exist between outputs, was calling output 'zed' for this
+# colnames(zed)
+# 
+# zed |> 
+#   select(1:5, lai.y, lai.x, gpsn.x, gpsn.y, plantc.x, plantc.y, litrc.x, litrc.y)
+#   ggplot()
+#   
+#   get_duplicated_stems <- function(df) {
+#   # Remove .x/.y suffixes
+#   base_names <- sub("\\.(x|y)$", "", colnames(df))
+#   
+#   # Find duplicated stems
+#   dupes <- base_names[duplicated(base_names) | duplicated(base_names, fromLast = TRUE)]
+#   
+#   unique(dupes)
+# }
+# 
+# # Usage
+# get_duplicated_stems(zed)
+
 
 
 ```
+
+```{r}
+
+hpb_test_bd |> 
+       mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
+filter(Date > ymd("1980-01-01")) |> 
+  select(Date, basinID, streamflow, baseflow, precip, recharge, unsat_stor, 
+         rz_storage, sat_def, 
+         litter_store, litter_capacity, 
+         evap, evap_can, evap_lit, evap_soil,
+         gw.Qout, gw.storage
+         ) |> 
+  pivot_longer(-c(1:2)) |> 
+  ggplot(aes(x = Date, y = value))+
+  geom_point()+ 
+  facet_wrap(~name, scales = "free_y")
+
+
+#streamflow by year
+hpb_test_bd |> 
+  filter(wy > 2020) |> 
+  mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
+  select(Date, year, wy, yd, streamflow) |> 
+  ggplot(aes(x = yd, y = streamflow, color = as.factor(wy) ))+
+  geom_line()
+
+  
+
+```
+
+
 
 Plot timeseries of outputs
 
@@ -137,28 +204,49 @@ Plot timeseries of outputs
 
 hpb_test_bdg |> 
   mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
+  filter(Date >= ymd("2000-10-01")) |>
   select(Date, basinID, lai, surfaceN, litrc, plantc, soilc, streamflow_DON, streamflow_DOC) |> 
   pivot_longer(-c(1:2)) |> 
   ggplot(aes(x = Date, y = value))+
   geom_point()+
   facet_wrap(~name, scales = "free_y")
 
+colnames(hpb_test_bd)
+colnames(hpb_test_bdg)
 
 hpb_test_bd |> 
-  mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
+   mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
+  filter(Date >= ymd("2000-10-01")) |>
   mutate(et = evap + trans, 
          precip_minus_et =  precip - et) |> 
-  select(Date, basinID, streamflow, baseflow, precip, evap, trans, et, precip_minus_et) |> 
+  select(Date, basinID, streamflow, baseflow, precip, evap, lai, trans, et, precip_minus_et) |> 
   pivot_longer(-c(1:2)) |> 
   ggplot(aes(x = Date, y = value))+
   geom_point()+
   #ylim(0,1)+
   facet_wrap(~name, scales = "free_y")
 
+hpb_test_bd |> 
+   mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
+    # filter(Date >= ymd("1990-10-01"),
+    #      Date <= ymd("2010-10-01")) |>
+  select(Date, basinID, streamflow, baseflow, precip, recharge, unsat_stor, 
+         rz_storage, sat_def, 
+         litter_store, litter_capacity, 
+         evap, evap_can, evap_lit, evap_soil,
+         gw.Qout, gw.storage
+         ) |> 
+  pivot_longer(-c(1:2)) |> 
+  ggplot(aes(x = Date, y = value))+
+  geom_point()+
+  #ylim(0,1)+
+  facet_wrap(~name, scales = "free_y")
+
+```
 
 
-vegchange
-vegsoilchange
+
+```{r}
 
 # #read in original climate files as a check
 # getwd()
@@ -174,6 +262,5 @@ vegsoilchange
 #   ggplot(aes(x = Date, y = value))+
 #   geom_point()+
 #   facet_wrap(~name, scales = "free_y")
-
 ```
 

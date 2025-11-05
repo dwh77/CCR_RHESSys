@@ -60,7 +60,7 @@ Unless new development changes are being made to the worldfile or flowtable, you
 
 ```{r setrunvars}
 
-setwd("repo/Testing")
+setwd("repo/Testing_rhessys_ExampleFiles")
 
 
 #rhessys_ver = "/Users/naomitague/Model/RHESSys/rhessys/rhessys7.3"
@@ -99,7 +99,8 @@ tecfile = "tecfiles/tec.test" #can maybe ignore for now
 
 cmd1 = sprintf("%s -t %s -w %s -whdr %s -r %s",
                      rhessys_ver, tecfile, worldfile, header, flowtable)
-cmd2 = sprintf("-pre out/test -s 0.355794 651.390265 -sv 0.355794 651.390265 -svalt 1.083102 1.193924, -gw 0.116316 0.916922")
+ cmd2 = sprintf("-pre out/test -s 0.355794 651.390265 -sv 0.355794 651.390265 -svalt 1.083102 1.193924, -gw 0.116316 0.916922")
+#cmd2 = sprintf("-pre out/test")
 cmd3 = sprintf("-st 1988 10 1 1 -ed 2000 10 1 1 -b -g")
 command_line = paste(cmd1,cmd2,cmd3)
 ```
@@ -108,6 +109,44 @@ command_line = paste(cmd1,cmd2,cmd3)
 ```{r runrhessys}
 system(command_line)
 ```
+
+##Trying IOinR output filter
+
+```{r}
+
+setwd("repo/Testing_rhessys_ExampleFiles")
+
+
+library(RHESSysIOinR)
+
+
+input_rhessys = IOin_rhessys_input(
+  version = "../../rhessys7.5",
+  tec_file = "tecfiles/tec.test",
+  world_file = "worldfiles/w8TC.world",
+  world_hdr_prefix = "w8TC",
+  flowtable = "flowtables/w8TC.flow",
+  start = "1988 9 30 1",
+  end = "2000 10 1 1",
+  output_folder = "out/",
+  output_prefix = "w8TC",
+  commandline_options = c()
+)
+
+# Along with paths to the other basic inputs, this is the simplest way to assemble a rhessys run, though is limited in its options
+run_rhessys_single(
+  input_rhessys = input_rhessys,
+  hdr_files = "worldfiles/w8TC.hdr",
+  output_filter = "tecfiles/testing_filter.yml"
+)
+
+
+
+```
+
+
+
+
 ### Read in the test results and plot the water balance results
 
 In general water balance should be close to zero - there are of course small rounding errors, typically daily water balance is less than +- 2e-06, you can see by plotting results from the water balance test for base case (included in *W8TestCase.RData*)
@@ -117,24 +156,89 @@ We will plot both so you can see if there is a water balance issue with your new
 
 getwd()
 test = readin_rhessys_output("out/test")
-test = readin_rhessys_output("../Testing_rhessys_ExampleFiles/out/resprout_issue_19oct25/test")
+test = readin_rhessys_output("out/3nov25_1243/test")
 #DWH trials 
 names(test)
 test_bd <- test$bd
 test_bdg <- test$bdg
+# test_pdg <- test$pdg
+# test_pd <- test$pd
+
 
 
 
 
 
 #original code
-test$bd = watbal_basin(test$bd)
+#test$bd = watbal_basin(test$bd)
 
 # your results are in red
-ggplot(base, aes(date, watbal))+geom_point()+geom_point(data=test$bd, aes(date, watbal), col="red", alpha=0.4)
+#ggplot(base, aes(date, watbal))+geom_point()+geom_point(data=test$bd, aes(date, watbal), col="red", alpha=0.4)
 
 
 ```
+
+
+#DWh plots 
+basin
+```{r}
+test_bdg |> 
+  mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
+  select(Date, basinID, lai, surfaceN, litrc, plantc, soilc, streamflow_DON, streamflow_DOC) |> 
+  pivot_longer(-c(1:2)) |> 
+  ggplot(aes(x = Date, y = value))+
+  geom_point()+
+  facet_wrap(~name, scales = "free_y")
+
+
+test_bd |> 
+  mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
+  mutate(et = evap + trans, 
+         precip_minus_et =  precip - et) |> 
+  select(Date, basinID, streamflow, baseflow, lai, precip, evap, trans, et, precip_minus_et) |> 
+  pivot_longer(-c(1:2)) |> 
+  ggplot(aes(x = Date, y = value))+
+  geom_point()+
+  #ylim(0,1)+
+  facet_wrap(~name, scales = "free_y")
+
+
+```
+
+what RHESSys provides
+```{r}
+colnames(base)
+colnames(out_base)
+
+base |> 
+  mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
+  select(Date, basinID, streamflow) |> 
+  pivot_longer(-c(1:2)) |> 
+  ggplot(aes(x = Date, y = value))+
+  geom_point()+
+  #ylim(0,1)+
+  facet_wrap(~name, scales = "free_y")
+
+```
+
+
+
+patch
+
+```{r}
+unique(test_pd$patchID)
+test_pd |> 
+  mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
+  select(Date, basinID, patchID, streamflow, baseflow, evap, LEcanopy)  |> 
+  pivot_longer(-c(1:3)) |> 
+  ggplot(aes(x = Date, y = value))+
+  geom_point()+
+  #ylim(0,1)+
+  facet_wrap(~name, scales = "free_y")
+
+
+```
+
 
 ### Difference between the base and the test scenarios     
 The **percent_diff_mean** object shows the difference in the mean streamflow, transpiration, evaporation, psn, and plant carbon results between the base and test scenarios.     
