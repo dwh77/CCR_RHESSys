@@ -22,7 +22,6 @@ library(ggpubr)
 
 ### Input files    
 Edit the **rhessys_ver** = path and file name to point to your new version of RHESSys    (in R chunk below)
-Unless new development changes are being made to the worldfile or flowtable, you will use the same input files.
 
 Testing data
 ```{r}
@@ -117,8 +116,10 @@ system(command_line)
 ```
 
 
-### Read in the test results 
 
+
+
+### Read in the test results 
 
 ```{r}
 getwd()
@@ -140,7 +141,8 @@ names(hpb_test)
 hpb_test_bd <- hpb_test$bd
 hpb_test_bdg <- hpb_test$bdg
 
-output <- left_join(hpb_test_bd, hpb_test_bdg, by = c("day", "month", "year", "basinID", "wy", "yd", "date")) |> 
+output <- left_join(hpb_test_bd, hpb_test_bdg, 
+                    by = c("day", "month", "year", "basinID", "wy", "yd", "date")) |> 
   select(day, month, year, date, yd, wy, basinID, everything())
 
 ## Figuring out what duped columns exist between outputs, was calling output 'zed' for this
@@ -164,83 +166,52 @@ output <- left_join(hpb_test_bd, hpb_test_bdg, by = c("day", "month", "year", "b
 # get_duplicated_stems(zed)
 
 
-
 ```
+
+
 
 ```{r}
 
-hpb_test_bd |> 
-       mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
-filter(Date > ymd("1980-01-01")) |> 
-  select(Date, basinID, streamflow, baseflow, precip, recharge, unsat_stor, 
+## Hydro plots
+output |> 
+  filter(date > ymd("1980-01-01")) |> 
+  select(date, year, yd, streamflow, baseflow, precip, recharge, unsat_stor, 
          rz_storage, sat_def, 
          litter_store, litter_capacity, 
          evap, evap_can, evap_lit, evap_soil,
          gw.Qout, gw.storage
          ) |> 
-  pivot_longer(-c(1:2)) |> 
-  ggplot(aes(x = Date, y = value))+
+  pivot_longer(-c(1:3)) |> 
+  ggplot(aes(x = date, y = value))+
   geom_point()+ 
   facet_wrap(~name, scales = "free_y")
 
 
 #streamflow by year
-hpb_test_bd |> 
+output |> 
   filter(wy > 2020) |> 
-  mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
-  select(Date, year, wy, yd, streamflow) |> 
-  ggplot(aes(x = yd, y = streamflow, color = as.factor(wy) ))+
-  geom_line()
+  select(date, year, yd, streamflow, precip) |> 
+  pivot_longer(-c(1:3)) |> 
+  ggplot(aes(x = yd, y = value, color = as.factor(year) ))+
+  geom_line(size = 1.2)+
+  facet_wrap(~name, scales = "free_y", nrow = 2)
+
+
+
+
+## Biogeochem Plots
+output |> 
+  #filter(date > ymd("1980-01-01")) |> 
+  select(date, year, yd, lai.x, surfaceN, 
+         litrc.x, plantc.x, soilc, streamflow_DON, streamflow_DOC
+         ) |> 
+  pivot_longer(-c(1:3)) |> 
+  ggplot(aes(x = date, y = value))+
+  geom_point()+ 
+  facet_wrap(~name, scales = "free_y")
+
 
   
-
-```
-
-
-
-Plot timeseries of outputs
-
-```{r}
-
-hpb_test_bdg |> 
-  mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
-  filter(Date >= ymd("2000-10-01")) |>
-  select(Date, basinID, lai, surfaceN, litrc, plantc, soilc, streamflow_DON, streamflow_DOC) |> 
-  pivot_longer(-c(1:2)) |> 
-  ggplot(aes(x = Date, y = value))+
-  geom_point()+
-  facet_wrap(~name, scales = "free_y")
-
-colnames(hpb_test_bd)
-colnames(hpb_test_bdg)
-
-hpb_test_bd |> 
-   mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
-  filter(Date >= ymd("2000-10-01")) |>
-  mutate(et = evap + trans, 
-         precip_minus_et =  precip - et) |> 
-  select(Date, basinID, streamflow, baseflow, precip, evap, lai, trans, et, precip_minus_et) |> 
-  pivot_longer(-c(1:2)) |> 
-  ggplot(aes(x = Date, y = value))+
-  geom_point()+
-  #ylim(0,1)+
-  facet_wrap(~name, scales = "free_y")
-
-hpb_test_bd |> 
-   mutate(Date = ymd(paste(year, month, day, sep = "-"))) |> 
-    # filter(Date >= ymd("1990-10-01"),
-    #      Date <= ymd("2010-10-01")) |>
-  select(Date, basinID, streamflow, baseflow, precip, recharge, unsat_stor, 
-         rz_storage, sat_def, 
-         litter_store, litter_capacity, 
-         evap, evap_can, evap_lit, evap_soil,
-         gw.Qout, gw.storage
-         ) |> 
-  pivot_longer(-c(1:2)) |> 
-  ggplot(aes(x = Date, y = value))+
-  geom_point()+
-  #ylim(0,1)+
-  facet_wrap(~name, scales = "free_y")
 
 ```
 
