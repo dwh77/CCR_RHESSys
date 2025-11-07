@@ -1,0 +1,310 @@
+---
+title: "HPB_stage_Q"
+output: html_document
+date: "2025-11-07"
+---
+
+```{r}
+library(tidyverse)
+```
+
+
+## Get Data
+
+CCR Dam meteo
+
+```{r}
+
+### EDI data
+ccr_met_edi <- read_csv("https://pasta.lternet.edu/package/data/eml/edi/1105/3/df0ce4fc90f220b65c400b997abae37b")
+
+## github data
+ccr_met_git <- read_csv("https://raw.githubusercontent.com/FLARE-forecast/CCRE-data/refs/heads/ccre-dam-data-qaqc/ccre_met_L1.csv") 
+
+## bind data
+ccr_met <- ccr_met_edi |> 
+  select(-starts_with("Note")) |> #remove note columns to bind
+  rbind(ccr_met_git) 
+
+##format for bind with HOBOs
+ccr_met_bind <- ccr_met |> 
+  select(DateTime, BP_Average_kPa, Flag_BP_Average_kPa) |> 
+  mutate(Date = as.Date(DateTime),
+         Hour = hour(DateTime),
+         Min = minute(DateTime)) |> 
+  filter(Min %in% c(0,10,20,30,40,50)) |>  #get just minutes to line up w/ HOBO
+  rename(DateTime_EST = DateTime) |> 
+  select(DateTime_EST, BP_Average_kPa, Flag_BP_Average_kPa) 
+
+#check BP flag
+unique(ccr_met_bind$Flag_BP_Average_kPa)
+#all 4 or 1s which are already set to NA
+
+```
+
+
+HPB Hobo
+
+```{r}
+#### 1st HOBO sensor water level
+
+## Read in 2 csvs and trim excess
+hpb_hobo_16sep24 <- read_csv("https://raw.githubusercontent.com/CareyLabVT/ManualDownloadsSCCData/master/CCR_manual_downloads/CCR_Hobos/HPB_waterlevel/hobo_hpb_16sep24.csv", skip = 1) |> 
+  select(2:4)
+
+hpb_hobo_17dec24 <- read_csv("https://raw.githubusercontent.com/CareyLabVT/ManualDownloadsSCCData/master/CCR_manual_downloads/CCR_Hobos/HPB_waterlevel/hobo_hpb_17dec24_2.csv", skip = 1) |> 
+  select(2:4)
+
+hpb_hobo1 <- rbind(hpb_hobo_16sep24, hpb_hobo_17dec24)
+
+#set time where sensor may have been out of the water
+maintenance_hobo1 <- c(seq(ymd_hms("2024-05-22 15:00:00"), ymd_hms("2024-05-22 16:00:00"), by = "10 min"),
+                 seq(ymd_hms("2024-06-19 11:00:00"), ymd_hms("2024-06-19 12:20:00"), by = "10 min"),
+                 seq(ymd_hms("2024-07-11 11:00:00"), ymd_hms("2024-07-11 12:00:00"), by = "10 min"),
+                 seq(ymd_hms("2024-09-16 13:00:00"), ymd_hms("2024-09-16 14:00:00"), by = "10 min"),
+                 seq(ymd_hms("2024-09-30 12:30:00"), ymd_hms("2024-09-30 14:00:00"), by = "10 min"),
+                 seq(ymd_hms("2024-10-28 13:00:00"), ymd_hms("2024-10-28 14:00:00"), by = "10 min"),
+                 seq(ymd_hms("2024-12-17 13:30:00"), ymd_hms("2024-12-17 14:00:00"), by = "10 min")
+                 )
+
+## bind csvs and format to join with met
+hobo1_bind <- hpb_hobo1 |> 
+  rename(DateTime_EDT = 1, 
+         HOBO_Abs_Pres_kPa = 2,
+         Temp_C = 3) |> 
+  mutate(DateTime_EDT = mdy_hms(DateTime_EDT)) |> 
+  filter(!DateTime_EDT %in% maintenance_hobo1) |> 
+  mutate(Date = as.Date(DateTime_EDT),
+         Hour = hour(DateTime_EDT),
+         Min = minute(DateTime_EDT)) |> 
+  mutate(Time_EST = paste(Hour+1, Min, 00, sep = ":"),
+         DateTime_EST = ymd_hms(paste(Date, Time_EST, sep = " "))  ) |> 
+  select(DateTime_EST, HOBO_Abs_Pres_kPa, Temp_C) 
+
+
+
+
+#### 2nd HOBO sensor water level
+
+## Read in csv and trim excess
+## skip 11jun and 9jul becasue 20aug has same data downloaded too
+# hpb_hobo_11jun25 <- read_csv("https://raw.githubusercontent.com/CareyLabVT/ManualDownloadsSCCData/refs/heads/master/CCR_manual_downloads/CCR_Hobos/HPB_waterlevel/CCR_HPB_20250611.csv", skip = 1) |> 
+#   select(2:4)
+# 
+# hpb_hobo_9jul25 <- read_csv("https://raw.githubusercontent.com/CareyLabVT/ManualDownloadsSCCData/refs/heads/master/CCR_manual_downloads/CCR_Hobos/HPB_waterlevel/CCR_HPB_20250709.csv", skip = 1) |> 
+#   select(2:4)
+
+hpb_hobo_20aug25 <- read_csv("https://raw.githubusercontent.com/CareyLabVT/ManualDownloadsSCCData/refs/heads/master/CCR_manual_downloads/CCR_Hobos/HPB_waterlevel/CCR_HPB_20250820.csv", skip = 1) |> 
+  select(2:4)
+
+
+hpb_hobo2 <- hpb_hobo_20aug25
+
+
+## bind csvs and format to join with met
+hobo2_bind <- hpb_hobo2 |> 
+  rename(DateTime_EDT = 1, 
+         HOBO_Abs_Pres_kPa = 2,
+         Temp_C = 3) |> 
+  mutate(DateTime_EDT = mdy_hms(DateTime_EDT)) |> 
+  # filter(!DateTime_EDT %in% maintenance_hobo2) |> 
+  mutate(Date = as.Date(DateTime_EDT),
+         Hour = hour(DateTime_EDT),
+         Min = minute(DateTime_EDT)) |> 
+  mutate(Time_EST = paste(Hour+1, Min, 00, sep = ":"),
+         DateTime_EST = ymd_hms(paste(Date, Time_EST, sep = " "))  ) |> 
+  select(DateTime_EST, HOBO_Abs_Pres_kPa, Temp_C) 
+
+
+
+#### Bind both hobo sensors together
+hobo_bind <- rbind(hobo1_bind, hobo2_bind)
+
+
+##get rid of excess data frames now
+rm(hpb_hobo_16sep24, hpb_hobo_17dec24, hpb_hobo_20aug25, 
+   maintenance_hobo1,
+   hpb_hobo1, hpb_hobo2,
+   hobo1_bind, hobo2_bind)
+
+
+```
+
+## Bind data and calculate HPB water level
+
+bind data and calculate water level
+
+```{r}
+
+waterlevel_correct <- left_join(hobo_bind, ccr_met_bind, by = "DateTime_EST") |> 
+  select(-Flag_BP_Average_kPa) |> 
+  rename(HOBO_Temp_C = Temp_C) |> 
+  mutate(corrected_Pres_kPa = HOBO_Abs_Pres_kPa - BP_Average_kPa) |> 
+  mutate(waterlevel_cm = corrected_Pres_kPa * 10.1972)
+
+```
+
+Plot water level
+
+```{r}
+#### plot 10-min data
+
+waterlevel_correct |> 
+  ggplot()+
+  geom_line(aes(x=DateTime_EST, y = BP_Average_kPa, color = "MET"))+  
+  geom_line(aes(x=DateTime_EST, y = HOBO_Abs_Pres_kPa, color = "HOBO_raw"))+
+  geom_line(aes(x=DateTime_EST, y = corrected_Pres_kPa + 95, color = "HOBO_correct + 95"))
+
+waterlevel_correct |> 
+  ggplot(aes(x = DateTime_EST, y = waterlevel_cm))+
+  geom_line()
+
+
+#### Daily water level
+
+#get daily water level
+waterlevel_daily <- waterlevel_correct |> 
+  mutate(Date = as.Date(DateTime_EST)) |> 
+  group_by(Date) |> 
+  summarise(HPB_Daily_waterlevel_cm = mean(waterlevel_cm, na.rm = T))
+
+#plot 
+waterlevel_daily |> 
+  ggplot(aes(x = Date, y = HPB_Daily_waterlevel_cm))+
+  geom_point()
+
+
+
+```
+
+
+## Compare to Flowmate Q
+
+Get Flowmate Q data
+
+```{r}
+#Read in data
+Qedi <- read.csv("https://pasta.lternet.edu/package/data/eml/edi/454/8/5edb79c2676d7b351d9eec184799c7dd")
+qL1 <- read.csv("https://raw.githubusercontent.com/CareyLabVT/Reservoirs/refs/heads/master/Data/DataNotYetUploadedToEDI/Raw_Discharge/ManualDischarge_L1.csv")
+
+#format
+hpb_flowmate <- rbind(Qedi, qL1) |> 
+  filter(Reservoir == "CCR", 
+         Site == 101) |>
+  mutate(DateTime = ymd_hms(DateTime),
+          Date = as.Date(DateTime)) |> 
+  mutate(L_s = Flow_cms * 1000) 
+
+
+#plot of flowmate data 
+hpb_flowmate |> 
+  mutate(Month = month(Date)) |> 
+  ggplot(aes(x = Date, y = L_s))+ 
+  geom_point()+
+  #geom_point(aes(color = as.factor(Month)))+ 
+  geom_line()
+
+```
+
+
+Bind to Stage and make regression
+
+```{r}
+library(ggpmisc)
+
+### Set up dataframe
+stage_Q_df <- left_join(waterlevel_daily, hpb_flowmate, by = "Date" ) |> 
+  mutate(Month = month(Date)) 
+
+
+####plot linear model fit
+stage_Q_df |> 
+  ggplot(aes(x = HPB_Daily_waterlevel_cm, y = L_s, color = Month)) +
+  geom_point() +
+  stat_poly_line(method = "lm", linewidth = 2)+
+  stat_poly_eq(formula=y~x, label.x = "left", label.y="top", parse=TRUE, inherit.aes = F,
+               aes(x = HPB_Daily_waterlevel_cm, y = L_s, label=paste(..adj.rr.label..,..p.value.label..,sep="~~~"),size=3))+
+  labs(x = "HPB water level (cm)", y = "Flowmate (L/s)")+
+  theme_bw()+
+  scale_color_viridis_c()
+  
+
+#### Try nonlinear fit following 
+## https://rpubs.com/kwf/hydrographs_covino
+## other resource to check out: https://thewetlandblog.wordpress.com/2013/06/17/fitting-rating-curves-with-r/
+
+##clean up stage to get fit
+stage_df <- stage_Q_df |> 
+  select(Date, HPB_Daily_waterlevel_cm, L_s) |> 
+  # rename(Q = L_s,
+  #        stage = HPB_Daily_waterlevel_cm) |> 
+  filter(!is.na(L_s),
+         L_s > 0,
+         L_s < 30) #0 is model will fit, 30 is testing to get a better fit
+
+
+# Fit nonlinear model: Q = a * stage^b
+rating_fit <- nls(L_s ~ a * HPB_Daily_waterlevel_cm^b, data = stage_df, start = list(a = 1, b = 1))
+summary(rating_fit)
+
+#add predicted values to stage data
+stage_df <- stage_df |> 
+  mutate(Q_pred = predict(rating_fit))
+
+#plot
+stage_df |> 
+ggplot(aes(x = HPB_Daily_waterlevel_cm)) +
+  geom_point(aes(y = L_s)) +
+  geom_line(aes(y = Q_pred), color = "red", size = 1) +
+  theme_bw() +
+  labs(title = "Rating Curve Fit",
+       x = "Stage (cm)",
+       y = "Discharge (L_s)",
+       color = "Legend")
+
+
+
+
+```
+
+
+## Looking at max depth of flowmate v stage
+
+get depths from cross sectional flowmate
+
+```{r}
+#read in google sheet
+Q_gsheet <- gsheet::gsheet2tbl("https://docs.google.com/spreadsheets/d/1fgYcGsZeALuwdAX3H0UeA3u57zKsuqTkouh2bxuBTKw/edit?gid=0#gid=0")
+
+#subset
+flowmate_max_depth <- Q_gsheet |> 
+  filter(Method == "Flowmeter",
+         Reservoir == "CCR",
+         Site == 101) |> 
+  mutate(Date = mdy(Date)) |> 
+  group_by(Date) |> 
+  summarise(flowmate_max_depth_cm = max(Depth_cm, na.rm = T)) |> 
+  filter(flowmate_max_depth_cm > 1) # the one zero is real, the other 0.17 seems funky
+
+
+## Join that to stage and plot
+left_join(waterlevel_daily, flowmate_max_depth, by = "Date") |> 
+  mutate(Month= month(Date)) |> 
+  ggplot(aes(x = HPB_Daily_waterlevel_cm, y = flowmate_max_depth_cm, color = Month)) +
+  geom_point() +
+  stat_poly_line(method = "lm", linewidth = 2)+
+  stat_poly_eq(formula=y~x, label.x = "left", label.y="top", parse=TRUE, inherit.aes = F,
+               aes(x = HPB_Daily_waterlevel_cm, y = flowmate_max_depth_cm, label=paste(..adj.rr.label..,..p.value.label..,sep="~~~"),size=3))+
+  labs(x = "HPB water level (cm)", y = "Flowmate Max Depth (cm)")+
+  theme_bw()+
+  scale_color_viridis_c()
+
+
+
+
+
+```
+
+
+
+
