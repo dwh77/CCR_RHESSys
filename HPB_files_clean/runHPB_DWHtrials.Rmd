@@ -104,7 +104,7 @@ cmd1 = sprintf("%s -t %s -w %s -whdr %s -r %s",
                      rhessys_ver, tecfile, worldfile, header, flowtable)
  cmd2 = sprintf("-pre out/HPBtest -s 0.355794 651.390265 -sv 0.355794 651.390265 -svalt 1.083102 1.193924, -gw 0.116316 0.916922")
  #cmd2 = sprintf("-pre out/HPBtest -s 1 2000 -sv 1 2000 -svalt 1 2000, -gw 3 3")
-cmd3 = sprintf("-st 1950 10 1 1 -ed 2024 10 1 1 -b -g")
+cmd3 = sprintf("-st 1950 10 1 1 -ed 2025 06 1 1 -b -g")
 #cmd3 = sprintf("-st 1960 10 1 1 -ed 2010 10 1 1 -b -g") #DWH changed year
 command_line = paste(cmd1,cmd2,cmd3)
 
@@ -133,7 +133,7 @@ getwd()
 
 ## this was originally output in repo/out, but i moved into dated folder
 #hpb_test = readin_rhessys_output("../out/hpb_19oct25/test") #first run
-hpb_test = readin_rhessys_output("out/3nov25_400/HPBtest")
+hpb_test = readin_rhessys_output("out/6nov25_910/HPBtest")
 #hpb_test = readin_rhessys_output("out/HPBtest") #most recent run that hasn't been moved to a folder
 
 #DWH trials 
@@ -172,19 +172,35 @@ output <- left_join(hpb_test_bd, hpb_test_bdg,
 
 ```{r}
 
-## Hydro plots
+## Biogeochem Plots
 output |> 
   filter(date > ymd("1980-01-01")) |> 
-  select(date, year, yd, streamflow, baseflow, precip, recharge, unsat_stor, 
-         rz_storage, sat_def, 
-         litter_store, litter_capacity, 
-         evap, evap_can, evap_lit, evap_soil,
-         gw.Qout, gw.storage
+  select(date, year, yd, lai.x, #surfaceN, 
+         litrc.x, plantc.x, soilc, streamflow_DON, streamflow_DOC
          ) |> 
   pivot_longer(-c(1:3)) |> 
   ggplot(aes(x = date, y = value))+
   geom_point()+ 
-  facet_wrap(~name, scales = "free_y")
+  facet_wrap(~name, scales = "free_y", ncol = 2)
+
+
+## Hydro plots
+output |> 
+  filter(date > ymd("1980-01-01")) |> 
+  # select(date, year, yd, streamflow, baseflow, precip, recharge, unsat_stor, 
+  #        rz_storage, sat_def, 
+  #        litter_store, litter_capacity, 
+  #        evap, evap_can, evap_lit, evap_soil,
+  #        gw.Qout, gw.storage
+  #        ) |> 
+  select(date, year, yd, 
+         streamflow,  precip, recharge, 
+         unsat_stor, evap, gw.storage
+         ) |> 
+  pivot_longer(-c(1:3)) |> 
+  ggplot(aes(x = date, y = value))+
+  geom_point()+ 
+  facet_wrap(~name, scales = "free_y", ncol = 2)
 
 
 #streamflow by year
@@ -210,28 +226,31 @@ rhessys_Q <- output |>
 
 
 left_join(rhessys_Q, ccr_flowmate, by = c("date" = "Date")) |> 
+  filter(date >= ymd("2020-01-01")) |> 
   rename(Flowmate_L_s = L_s) |> 
   select(date, rhessys_Q_L_s, Flowmate_L_s) |> 
   ggplot()+
   geom_line(aes(x = date, y = rhessys_Q_L_s), size = 1)+
   geom_point(aes(x = date, y = Flowmate_L_s), color = "red", size = 3)+
-  theme_bw()
+  theme_bw()+
+  labs(x = "Date", y = "Discharge (L/s)")
 
       
+# left_join(rhessys_Q, ccr_flowmate, by = c("date" = "Date")) |> 
+#   filter(date >= ymd("2023-01-01")) |> 
+#   rename(Flowmate_L_s = L_s) |> 
+#   select(date, rhessys_Q_L_s, Flowmate_L_s) |> 
+#   rename(modeled = rhessys_Q_L_s,
+#          observed = Flowmate_L_s) |> 
+#   pivot_longer(-1) |> 
+#   ggplot(aes(x = date, y = value, color = name))+
+#   geom_point()+
+#   theme_bw()
 
 
 
 
-## Biogeochem Plots
-output |> 
-  #filter(date > ymd("1980-01-01")) |> 
-  select(date, year, yd, lai.x, surfaceN, 
-         litrc.x, plantc.x, soilc, streamflow_DON, streamflow_DOC
-         ) |> 
-  pivot_longer(-c(1:3)) |> 
-  ggplot(aes(x = date, y = value))+
-  geom_point()+ 
-  facet_wrap(~name, scales = "free_y")
+
 
 
   
@@ -241,12 +260,16 @@ output |>
 ## Look at CCR flowmate data
 
 ```{r}
+#read in data
 Qedi <- read.csv("https://pasta.lternet.edu/package/data/eml/edi/454/8/5edb79c2676d7b351d9eec184799c7dd")
 qL1 <- read.csv("https://raw.githubusercontent.com/CareyLabVT/Reservoirs/refs/heads/master/Data/DataNotYetUploadedToEDI/Raw_Discharge/ManualDischarge_L1.csv")
 
+#filter to hpb
 ccr_flowmate <- rbind(Qedi, qL1) |> 
   filter(Reservoir == "CCR", 
-        Site == 101) |>
+         #Site == 101,
+         Site %in% c(100,101)
+        ) |>
   mutate(DateTime = ymd_hms(DateTime),
           Date = as.Date(DateTime)) |> 
   mutate(L_s = Flow_cms * 1000) 
