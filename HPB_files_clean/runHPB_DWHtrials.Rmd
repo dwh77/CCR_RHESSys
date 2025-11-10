@@ -94,19 +94,29 @@ tecfile = "tecfiles/tec.test"
 Currently this is just the same from the Testing script
 ```{r commandlinegen}
 
+#original command line from testing
+# cmd1 = sprintf("%s -t %s -w %s -whdr %s -r %s",
+#                      rhessys_ver, tecfile, worldfile, header, flowtable)
+ # cmd2 = sprintf("-pre out/test -s 0.355794 651.390265 -sv 0.355794 651.390265 -svalt 1.083102 1.193924, -gw 0.116316 0.916922")
+# cmd3 = sprintf("-st 1988 10 1 1 -ed 2000 10 1 1 -b -g")
+# command_line = paste(cmd1,cmd2,cmd3)
+
+
 rhessys_ver = "../../rhessys7.5" #new to point backwards to model
 worldfile = "worldfiles/hpb2.world"
 header = "worldfiles/hpb.hdr"
 flowtable = "flowtables/hpb2.flow"
 tecfile = "tecfiles/tec.test" 
 
+
 cmd1 = sprintf("%s -t %s -w %s -whdr %s -r %s",
                      rhessys_ver, tecfile, worldfile, header, flowtable)
  cmd2 = sprintf("-pre out/HPBtest -s 0.355794 651.390265 -sv 0.355794 651.390265 -svalt 1.083102 1.193924, -gw 0.116316 0.916922")
- #cmd2 = sprintf("-pre out/HPBtest -s 1 2000 -sv 1 2000 -svalt 1 2000, -gw 3 3")
-cmd3 = sprintf("-st 1950 10 1 1 -ed 2025 06 1 1 -b -g")
-#cmd3 = sprintf("-st 1960 10 1 1 -ed 2010 10 1 1 -b -g") #DWH changed year
+ cmd3 = sprintf("-st 1908 01 1 1 -ed 2025 06 1 1 -b -g")
 command_line = paste(cmd1,cmd2,cmd3)
+
+system(command_line)
+
 
 ```
 
@@ -134,7 +144,7 @@ getwd()
 ## this was originally output in repo/out, but i moved into dated folder
 #hpb_test = readin_rhessys_output("../out/hpb_19oct25/test") #first run
 hpb_test = readin_rhessys_output("out/6nov25_910/HPBtest")
-#hpb_test = readin_rhessys_output("out/HPBtest") #most recent run that hasn't been moved to a folder
+hpb_test = readin_rhessys_output("out/HPBtest") #most recent run that hasn't been moved to a folder
 
 #DWH trials 
 names(hpb_test)
@@ -174,7 +184,7 @@ output <- left_join(hpb_test_bd, hpb_test_bdg,
 
 ## Biogeochem Plots
 output |> 
-  filter(date > ymd("1980-01-01")) |> 
+  # filter(date > ymd("1950-01-01")) |> 
   select(date, year, yd, lai.x, #surfaceN, 
          litrc.x, plantc.x, soilc, streamflow_DON, streamflow_DOC
          ) |> 
@@ -186,7 +196,7 @@ output |>
 
 ## Hydro plots
 output |> 
-  filter(date > ymd("1980-01-01")) |> 
+  # filter(date > ymd("1980-01-01")) |> 
   # select(date, year, yd, streamflow, baseflow, precip, recharge, unsat_stor, 
   #        rz_storage, sat_def, 
   #        litter_store, litter_capacity, 
