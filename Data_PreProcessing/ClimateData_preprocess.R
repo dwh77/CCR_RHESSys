@@ -46,6 +46,25 @@ write_variable_file(df, "TMAX", "ClimateFiles/clim/ccr_daily.tmax")
 
 
 
+### Extend climate data for spinup
+spinup <- df |>
+  filter(DATE < ymd("1988-01-01")) |>
+  mutate(year = year(DATE),
+         month = month(DATE),
+         day = day(DATE),
+         year_new = year-40) |>
+  mutate(Date_new = ymd(paste(year_new, month, day, sep = "-"))) |>
+  select(Date_new, PRCP, TMIN, TMAX) |>
+  rename(DATE = Date_new)
+
+
+climate_df_spinup <- rbind(spinup, df)
+
+# Write climate files from precip, tmin, and tmax
+write_variable_file(climate_df_spinup, "PRCP", "ClimateFiles/clim_spinup/ccr_daily.rain")
+write_variable_file(climate_df_spinup, "TMIN", "ClimateFiles/clim_spinup/ccr_daily.tmin")
+write_variable_file(climate_df_spinup, "TMAX", "ClimateFiles/clim_spinup/ccr_daily.tmax")
+
 
 # from https://github.com/RHESSys/RHESSys/wiki/Climate-Inputs
 # code for reading in RHESSys formatting climate data: https://github.com/RHESSys/RHESSysIOinR/wiki/Climate
