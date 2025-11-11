@@ -45,6 +45,8 @@ header = "worldfiles/w8TC.hdr"
 flowtable = "w8TC_dwh4.flow"
 tecfile = "tecfiles/tec.test" 
 
+##IOinR examples
+#https://github.com/RHESSys/RHESSysIOinR/blob/main/vignettes/IOin_examples.Rmd
 
 ```
 
@@ -101,6 +103,10 @@ Currently this is just the same from the Testing script
 # cmd3 = sprintf("-st 1988 10 1 1 -ed 2000 10 1 1 -b -g")
 # command_line = paste(cmd1,cmd2,cmd3)
 
+##cmd winner so far
+#cmd2 = sprintf("-pre out/HPBtest -s 0.355794 651.390265, -gw 0.116316 0.916922")
+
+
 
 rhessys_ver = "../../rhessys7.5" #new to point backwards to model
 worldfile = "worldfiles/hpb2.world"
@@ -111,7 +117,7 @@ tecfile = "tecfiles/tec.test"
 
 cmd1 = sprintf("%s -t %s -w %s -whdr %s -r %s",
                      rhessys_ver, tecfile, worldfile, header, flowtable)
- cmd2 = sprintf("-pre out/HPBtest -s 0.355794 651.390265 -sv 0.355794 651.390265 -svalt 1.083102 1.193924, -gw 0.116316 0.916922")
+cmd2 = sprintf("-pre out/HPBtest -s 0.9 650, -gw 0.1 0.9")
  cmd3 = sprintf("-st 1908 01 1 1 -ed 2025 06 1 1 -b -g")
 command_line = paste(cmd1,cmd2,cmd3)
 
@@ -133,17 +139,15 @@ system(command_line)
 
 ```{r}
 getwd()
-## inputs used for output below
-#updating veg type to decid and soil to silty loam
-# rhessys_ver = "../../rhessys7.5" #new to point backwards to model
-# worldfile = "worldfiles/hpb2.world"
-# header = "worldfiles/hpb.hdr"
-# flowtable = "flowtables/hpb2.flow"
-# tecfile = "tecfiles/tec.test" 
+
+##read in validation data
+validation_df <- read.csv("../Data_PreProcessing/HPB_stage_chem_data.csv") |> 
+  mutate(Date = ymd(Date))
+
 
 ## this was originally output in repo/out, but i moved into dated folder
 #hpb_test = readin_rhessys_output("../out/hpb_19oct25/test") #first run
-hpb_test = readin_rhessys_output("out/6nov25_910/HPBtest")
+#hpb_test = readin_rhessys_output("out/6nov25_910/HPBtest")
 hpb_test = readin_rhessys_output("out/HPBtest") #most recent run that hasn't been moved to a folder
 
 #DWH trials 
@@ -153,7 +157,12 @@ hpb_test_bdg <- hpb_test$bdg
 
 output <- left_join(hpb_test_bd, hpb_test_bdg, 
                     by = c("day", "month", "year", "basinID", "wy", "yd", "date")) |> 
-  select(day, month, year, date, yd, wy, basinID, everything())
+  select(day, month, year, date, yd, wy, basinID, everything()) |> 
+  left_join(validation_df, by = c("date" = "Date"))
+
+
+
+
 
 ## Figuring out what duped columns exist between outputs, was calling output 'zed' for this
 # colnames(zed)
@@ -184,10 +193,12 @@ output <- left_join(hpb_test_bd, hpb_test_bdg,
 
 ## Biogeochem Plots
 output |> 
-  # filter(date > ymd("1950-01-01")) |> 
+  #filter(date > ymd("1960-01-01")) |> 
   select(date, year, yd, lai.x, #surfaceN, 
-         litrc.x, plantc.x, soilc, streamflow_DON, streamflow_DOC
+         litrc.x, plantc.x, soilc, streamflow_DON, streamflow_DOC,
+         streamflow_NO3, streamflow_NH4
          ) |> 
+  #filter(streamflow_DOC < 0.00001) |> 
   pivot_longer(-c(1:3)) |> 
   ggplot(aes(x = date, y = value))+
   geom_point()+ 
@@ -228,20 +239,26 @@ output |>
 #streamflow from model is in mm (mm to m ==  mm/1000)
 rhessys_Q <- output |> 
   filter(year > 2020) |> 
-  select(date, year, yd, streamflow, precip) |> 
+  select(date, year, yd, streamflow, precip, flowmate_L_s, Q_L_s_stage) |> 
   mutate(streamflow_cmday = (streamflow / 1000 ) * (1.76 * 2590000),
          streamflow_cms = streamflow_cmday / 86400
          ) |> 
   mutate(rhessys_Q_L_s = streamflow_cms * 1000)
 
 
-left_join(rhessys_Q, ccr_flowmate, by = c("date" = "Date")) |> 
-  filter(date >= ymd("2020-01-01")) |> 
-  rename(Flowmate_L_s = L_s) |> 
-  select(date, rhessys_Q_L_s, Flowmate_L_s) |> 
+rhessys_Q |> 
+  filter(date >= ymd("2024-01-01")) |> 
+  select(date, rhessys_Q_L_s, Q_L_s_stage ) |> 
+  pivot_longer(-1) |> 
+  ggplot(aes(x = date, y = value, color = name))+
+  geom_line(size = 1.2)+
+  theme_bw()+
+  labs(x = "Date", y = "Discharge (L/s)")
+  
+rhessys_Q |> 
   ggplot()+
   geom_line(aes(x = date, y = rhessys_Q_L_s), size = 1)+
-  geom_point(aes(x = date, y = Flowmate_L_s), color = "red", size = 3)+
+  geom_point(aes(x = date, y = flowmate_L_s), color = "red", size = 3)+
   theme_bw()+
   labs(x = "Date", y = "Discharge (L/s)")
 
@@ -259,13 +276,62 @@ left_join(rhessys_Q, ccr_flowmate, by = c("date" = "Date")) |>
 
 
 
+###NO3 conversions check
+#assuimg gN/m2/day
+output |> 
+  filter(year > 2020) |> 
+  select(date, year, yd, streamflow, precip, streamflow_NO3, NO3NO2_ugL) |> 
+  mutate(NO3_mgL_AL = NO3NO2_ugL / 1000) |> 
+  mutate(streamflow_cmday = (streamflow / 1000 ) * (1.76 * 2590000),
+         streamflow_cms = streamflow_cmday / 86400
+         ) |> 
+  mutate(rhessys_Q_L_s = streamflow_cms * 1000) |> 
+  mutate(NO3_gN_day = streamflow_NO3 * (1.76 * 2590000)) |> 
+  mutate(Q_L_day = rhessys_Q_L_s * 86400) |> 
+  mutate(NO3_g_L = NO3_gN_day / Q_L_day) |> 
+  mutate(NO3_mg_L = NO3_g_L * 1000) |> 
+  ggplot(aes(x= date, y = NO3_mg_L))+
+  geom_point()+
+  geom_point(aes(x= date, y = NO3_mgL_AL ), color = "red")
+
+#assuimg kgN/m2/day
+output |> 
+  filter(year > 2020) |> 
+  select(date, year, yd, streamflow, precip, streamflow_NO3) |> 
+  mutate(streamflow_cmday = (streamflow / 1000 ) * (1.76 * 2590000),
+         streamflow_cms = streamflow_cmday / 86400
+         ) |> 
+  mutate(rhessys_Q_L_s = streamflow_cms * 1000) |> 
+  mutate(NO3_kgN_day = streamflow_NO3 * (1.76 * 2590000)) |> 
+  mutate(Q_L_day = rhessys_Q_L_s * 86400) |> 
+  mutate(NO3_kg_L = NO3_kgN_day / Q_L_day) |> 
+  mutate(NO3_mg_L = NO3_kg_L * 1000000) |> 
+  ggplot(aes(x= date, y = NO3_mg_L))+
+  geom_point()
+
+###DOC conversions check
+output |> 
+  #filter(year > 2020) |> 
+  select(date, year, yd, streamflow, precip, streamflow_DOC, DOC_mgL) |>
+  rename(DOC_mgL_AL = DOC_mgL) |> 
+  mutate(streamflow_cmday = (streamflow / 1000 ) * (1.76 * 2590000),
+         streamflow_cms = streamflow_cmday / 86400
+         ) |> 
+  mutate(rhessys_Q_L_s = streamflow_cms * 1000) |> 
+  mutate(DOC_gC_day = streamflow_DOC * (1.76 * 2590000)) |> 
+  mutate(Q_L_day = rhessys_Q_L_s * 86400) |> 
+  mutate(DOC_g_L = DOC_gC_day / Q_L_day) |> 
+  mutate(DOC_mg_L = DOC_g_L * 1000) |> 
+  filter(DOC_mg_L < 20) |> 
+  ggplot(aes(x= date, y = DOC_mg_L))+
+  geom_point() +
+  geom_point(aes(x= date, y = DOC_mgL_AL ), color = "red")
 
 
 
-
-  
 
 ```
+
 
 ## Look at CCR flowmate data
 
@@ -312,4 +378,7 @@ ccr_flowmate |> ggplot(aes(x = Date, y = L_s))+
 #   geom_point()+
 #   facet_wrap(~name, scales = "free_y")
 ```
+
+
+
 

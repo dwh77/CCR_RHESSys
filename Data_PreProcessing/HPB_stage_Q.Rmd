@@ -94,11 +94,16 @@ hobo1_bind <- hpb_hobo1 |>
 # hpb_hobo_9jul25 <- read_csv("https://raw.githubusercontent.com/CareyLabVT/ManualDownloadsSCCData/refs/heads/master/CCR_manual_downloads/CCR_Hobos/HPB_waterlevel/CCR_HPB_20250709.csv", skip = 1) |> 
 #   select(2:4)
 
-hpb_hobo_20aug25 <- read_csv("https://raw.githubusercontent.com/CareyLabVT/ManualDownloadsSCCData/refs/heads/master/CCR_manual_downloads/CCR_Hobos/HPB_waterlevel/CCR_HPB_20250820.csv", skip = 1) |> 
+# hpb_hobo_20aug25 <- read_csv("https://raw.githubusercontent.com/CareyLabVT/ManualDownloadsSCCData/refs/heads/master/CCR_manual_downloads/CCR_Hobos/HPB_waterlevel/CCR_HPB_20250820.csv", skip = 1) |> 
+#   select(2:4)
+
+hpb_hobo_14oct25 <- read_csv("https://raw.githubusercontent.com/CareyLabVT/ManualDownloadsSCCData/refs/heads/master/CCR_manual_downloads/CCR_Hobos/HPB_waterlevel/CCR_HPB_20251014.csv", skip = 1) |> 
   select(2:4)
 
 
-hpb_hobo2 <- hpb_hobo_20aug25
+
+
+hpb_hobo2 <- hpb_hobo_14oct25
 
 
 ## bind csvs and format to join with met
@@ -122,7 +127,7 @@ hobo_bind <- rbind(hobo1_bind, hobo2_bind)
 
 
 ##get rid of excess data frames now
-rm(hpb_hobo_16sep24, hpb_hobo_17dec24, hpb_hobo_20aug25, 
+rm(hpb_hobo_16sep24, hpb_hobo_17dec24, hpb_hobo_14oct25, 
    maintenance_hobo1,
    hpb_hobo1, hpb_hobo2,
    hobo1_bind, hobo2_bind)
@@ -219,6 +224,7 @@ stage_Q_df <- left_join(waterlevel_daily, hpb_flowmate, by = "Date" ) |>
 
 ####plot linear model fit
 stage_Q_df |> 
+  filter(L_s > 0.05) |> #0 point and aug25 with messed up units
   ggplot(aes(x = HPB_Daily_waterlevel_cm, y = L_s, color = Month)) +
   geom_point() +
   stat_poly_line(method = "lm", linewidth = 2)+
@@ -240,7 +246,7 @@ stage_df <- stage_Q_df |>
   #        stage = HPB_Daily_waterlevel_cm) |> 
   filter(!is.na(L_s),
          L_s > 0,
-         L_s < 30) #0 is model will fit, 30 is testing to get a better fit
+         L_s < 30) #0 is model will fit, 30 is testing to get a better fit 30 is day new HOBO was deployed
 
 
 # Fit nonlinear model: Q = a * stage^b
@@ -263,6 +269,57 @@ ggplot(aes(x = HPB_Daily_waterlevel_cm)) +
        color = "Legend")
 
 
+stage_to_Q <- stage_Q_df |> 
+  mutate(Q_L_s_stage = 0.05351 * (HPB_Daily_waterlevel_cm^2.23795) ) |> 
+  select(Date, HPB_Daily_waterlevel_cm, Q_L_s_stage) 
+
+
+
+```
+
+
+## Grab chem data, to bind w/ stage for validation
+
+```{r}
+chem <- read_csv("https://pasta.lternet.edu/package/data/eml/edi/199/13/3f09a3d23b7b5dd32ed7d28e9bc1b081" )
+
+ccrchem <- chem |> 
+  filter(Reservoir == "CCR",
+         Site %in% c(100, 101, 50, 51, 300, 301)) |> 
+  mutate(Site = ifelse(Site %in% c(100,101), 101, Site),
+         Site = ifelse(Site %in% c(300,301), 301, Site),
+         Site = ifelse(Site %in% c(50,51), 50, Site)
+         ) |> 
+  filter(Site == 101) |> 
+  mutate(Date = as.Date(DateTime)) |> 
+  mutate(TON_ugL = TN_ugL - (NO3NO2_ugL + NH4_ugL)) |> 
+  select(Date, Site, Depth_m, NH4_ugL, NO3NO2_ugL, DOC_mgL, TON_ugL) |> 
+  group_by(Date, Site, Depth_m) |> 
+  summarise(across(where(is.numeric), mean, na.rm = TRUE), .groups = "drop")
+
+  
+
+```
+
+export stage and chem
+
+```{r}
+
+hpb_Q <- rbind(Qedi, qL1) |> 
+  filter(Reservoir == "CCR", 
+         Site %in% c(100,101)) |>
+  mutate(DateTime = ymd_hms(DateTime),
+          Date = as.Date(DateTime)) |> 
+  mutate(flowmate_L_s = Flow_cms * 1000) |> 
+  select(Date, flowmate_L_s)
+
+
+validation_df <- full_join(ccrchem, stage_to_Q, by = "Date") |> 
+  full_join(hpb_Q, by = "Date") |> 
+  select(-c(Site, Depth_m))
+  
+
+write.csv(validation_df, "HPB_stage_chem_data.csv", row.names = F)
 
 
 ```
