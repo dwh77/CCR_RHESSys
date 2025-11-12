@@ -46,7 +46,7 @@ write_variable_file(df, "TMAX", "ClimateFiles/clim/ccr_daily.tmax")
 
 
 
-### Extend climate data for spinup
+### Extend climate data for spinup by 40 years
 spinup <- df |>
   filter(DATE < ymd("1988-01-01")) |>
   mutate(year = year(DATE),
@@ -61,9 +61,58 @@ spinup <- df |>
 climate_df_spinup <- rbind(spinup, df)
 
 # Write climate files from precip, tmin, and tmax
-write_variable_file(climate_df_spinup, "PRCP", "ClimateFiles/clim_spinup/ccr_daily.rain")
-write_variable_file(climate_df_spinup, "TMIN", "ClimateFiles/clim_spinup/ccr_daily.tmin")
-write_variable_file(climate_df_spinup, "TMAX", "ClimateFiles/clim_spinup/ccr_daily.tmax")
+write_variable_file(climate_df_spinup, "PRCP", "ClimateFiles/clim_spinup_40years/ccr_daily.rain")
+write_variable_file(climate_df_spinup, "TMIN", "ClimateFiles/clim_spinup_40years/ccr_daily.tmin")
+write_variable_file(climate_df_spinup, "TMAX", "ClimateFiles/clim_spinup_40years/ccr_daily.tmax")
+
+
+
+### Extend climate data for spinup by 200 years
+spinup_200_1872_1947 <- df |>
+  filter(DATE < ymd("2024-01-01")) |>
+  mutate(year = year(DATE),
+         year_new = year-76) |>
+  mutate(Date_new = ymd(paste(year_new, month(DATE), day(DATE), sep = "-"))) |>
+  filter(!is.na(Date_new)) |>  #1900 was not a leap year so tossing that row
+  select(Date_new, PRCP, TMIN, TMAX) |>
+  rename(DATE = Date_new)
+
+
+spinup_200_1796_1871 <- df |>
+  filter(DATE < ymd("2024-01-01")) |>
+  mutate(year = year(DATE),
+         year_new = year-152) |>
+  mutate(Date_new = ymd(paste(year_new, month(DATE), day(DATE), sep = "-"))) |>
+  filter(!is.na(Date_new)) |>  #1800 was not a leap year so tossing that row
+  select(Date_new, PRCP, TMIN, TMAX) |>
+  rename(DATE = Date_new)
+
+spinup_200_1720_1795 <- df |>
+  filter(DATE < ymd("2024-01-01")) |>
+  mutate(year = year(DATE),
+         year_new = year-228) |>
+  mutate(Date_new = ymd(paste(year_new, month(DATE), day(DATE), sep = "-"))) |>
+  select(Date_new, PRCP, TMIN, TMAX) |>
+  rename(DATE = Date_new)
+
+
+spinup_200 <- rbind(spinup_200_1720_1795, spinup_200_1796_1871, spinup_200_1872_1947)
+
+#check right # of days
+qqq <- seq(ymd("1720-01-01"), ymd("1947-12-31"), by = "day")
+
+#bind all together
+spinup_200_with_observed <- rbind(spinup_200, df)
+
+#write long spinup files
+# Write climate files from precip, tmin, and tmax
+write_variable_file(spinup_200_with_observed, "PRCP", "ClimateFiles/clim_spinup_200years/ccr_daily.rain")
+write_variable_file(spinup_200_with_observed, "TMIN", "ClimateFiles/clim_spinup_200years/ccr_daily.tmin")
+write_variable_file(spinup_200_with_observed, "TMAX", "ClimateFiles/clim_spinup_200years/ccr_daily.tmax")
+
+
+
+
 
 
 # from https://github.com/RHESSys/RHESSys/wiki/Climate-Inputs
