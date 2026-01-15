@@ -106,6 +106,7 @@ Currently this is just the same from the Testing script
 ##cmd winner so far
 #cmd2 = sprintf("-pre out/HPBtest -s 0.355794 651.390265, -gw 0.116316 0.916922")
 
+# cmd3 = sprintf("-st 1908 01 1 1 -ed 2025 06 1 1 -b -g")
 
 
 rhessys_ver = "../../rhessys7.5" #new to point backwards to model
@@ -118,7 +119,7 @@ tecfile = "tecfiles/tec.test"
 cmd1 = sprintf("%s -t %s -w %s -whdr %s -r %s",
                      rhessys_ver, tecfile, worldfile, header, flowtable)
 cmd2 = sprintf("-pre out/HPBtest -s 0.9 650, -gw 0.1 0.9")
- cmd3 = sprintf("-st 1908 01 1 1 -ed 2025 06 1 1 -b -g")
+ cmd3 = sprintf("-st 1720 01 1 1 -ed 2025 06 1 1 -b -g")
 command_line = paste(cmd1,cmd2,cmd3)
 
 system(command_line)
@@ -188,12 +189,15 @@ output <- left_join(hpb_test_bd, hpb_test_bdg,
 ```
 
 
+## Plot results 
+
+stabilization plots 
 
 ```{r}
 
 ## Biogeochem Plots
 output |> 
-  #filter(date > ymd("1960-01-01")) |> 
+  filter(date > ymd("1900-01-01")) |> 
   select(date, year, yd, lai.x, #surfaceN, 
          litrc.x, plantc.x, soilc, streamflow_DON, streamflow_DOC,
          streamflow_NO3, streamflow_NH4
@@ -223,6 +227,13 @@ output |>
   geom_point()+ 
   facet_wrap(~name, scales = "free_y", ncol = 2)
 
+
+```
+
+
+Validation to our data
+
+```{r}
 
 #streamflow by year
 output |> 
@@ -332,28 +343,136 @@ output |>
 
 ```
 
+## For WVWA report back
+
+```{r}
+
+flowplot <-  rhessys_Q |> 
+  filter(date >= ymd("2024-01-01")) |> 
+  select(date, rhessys_Q_L_s, Q_L_s_stage ) |> 
+  rename(modeled = rhessys_Q_L_s, observed = Q_L_s_stage) |> 
+  pivot_longer(-1) |> 
+  ggplot(aes(x = date, y = value, color = name))+
+  geom_line(size = 1.2)+
+  scale_x_date(date_labels = "%b %Y", date_breaks = "3 months")+
+  theme_bw()+
+  labs(x = "Date", y = "Discharge (L/s)")
+
+
+no3plot <- output |> 
+  filter(date >= ymd("2024-01-01")) |> 
+  select(date, year, yd, streamflow, precip, streamflow_NO3, NO3NO2_ugL) |> 
+  mutate(NO3_mgL_AL = NO3NO2_ugL / 1000) |> 
+  mutate(streamflow_cmday = (streamflow / 1000 ) * (1.76 * 2590000),
+         streamflow_cms = streamflow_cmday / 86400
+         ) |> 
+  mutate(rhessys_Q_L_s = streamflow_cms * 1000) |> 
+  mutate(NO3_gN_day = streamflow_NO3 * (1.76 * 2590000)) |> 
+  mutate(Q_L_day = rhessys_Q_L_s * 86400) |> 
+  mutate(NO3_g_L = NO3_gN_day / Q_L_day) |> 
+  mutate(NO3_mg_L = NO3_g_L * 1000) |> 
+  select(date, NO3_mg_L, NO3_mgL_AL) |> 
+  rename(modeled = NO3_mg_L, observed = NO3_mgL_AL) |>
+    filter(modeled < 300) |> 
+  pivot_longer(-1) |> 
+  ggplot(aes(x = date, y = value, color = name))+
+  geom_point(size = 2)+
+  scale_x_date(date_labels = "%b %Y", date_breaks = "3 months")+
+  theme_bw()+
+  labs(x = "Date", y = "Nitrate (mg/L)")
+
+library(patchwork)
+flowplot / no3plot
+
+```
+
+LAI
+```{r}
+hpb_lat <- 37.3646
+hpb_long <- -79.9733
+## GET LAI data following Quinn's code
+#https://frec-5174.github.io/eco4cast-in-R-book/neon-data.html#modis-lai
+library(MODISTools)
+lai <- MODISTools::mt_subset(product = "MCD15A2H",
+                  lat = hpb_lat,
+                  lon =  hpb_long,
+                  band = c("Lai_500m", "FparLai_QC"),
+                  start = as_date("2020-01-01"),
+                  end = Sys.Date(),
+                  site_name = "HPB",
+                  progress = FALSE)
+
+
+lai_cleaned <- lai |> 
+  mutate(scale = ifelse(band == "FparLai_QC", 1, scale),
+         scale = as.numeric(scale),
+         value = scale * value,
+         datetime = lubridate::as_date(calendar_date)) |> 
+  select(band, value, datetime) |> 
+  pivot_wider(names_from = band, values_from = value) |> 
+  filter(FparLai_QC == 0) |> 
+  rename(observation = Lai_500m) |> 
+  mutate(variable = "lai") |> 
+  select(datetime, variable, observation)
+
+
+
+### plot lai
+lai_cleaned <- lai_cleaned |> 
+  pivot_wider(names_from = variable, values_from = observation) |> 
+  rename(lai_MODIS = lai)
+
+lai_cleaned |> ggplot(aes(x = datetime, y = lai_MODIS))+ geom_point()
+
+
+###join to RHESSys output
+# did a quick check and lai.x always equals lai.y
+lai_fig <- output |> 
+  filter(year(date) > 2019) |> 
+  left_join(lai_cleaned, by = c("date" = "datetime")) |> 
+  select(date, lai.x, lai_MODIS) |> 
+  rename(modeled = lai.x,
+         observed = lai_MODIS) |> 
+  pivot_longer(-1) |> 
+  # filter(date >= ymd("2024-01-01")) |> 
+  ggplot(aes(x = date, y = value, color = name))+
+  geom_line()+
+  geom_point(size = 2)+
+  # scale_x_date(date_labels = "%b %Y", date_breaks = "3 months")+
+  scale_x_date(date_labels = "%Y", date_breaks = "1 year")+
+  theme_bw()+
+  labs(x = "Date", y = "Leaf Area Index (LAI)")
+
+lai_fig
+
+flowplot/lai_fig
+
+
+```
+
+
 
 ## Look at CCR flowmate data
 
 ```{r}
-#read in data
-Qedi <- read.csv("https://pasta.lternet.edu/package/data/eml/edi/454/8/5edb79c2676d7b351d9eec184799c7dd")
-qL1 <- read.csv("https://raw.githubusercontent.com/CareyLabVT/Reservoirs/refs/heads/master/Data/DataNotYetUploadedToEDI/Raw_Discharge/ManualDischarge_L1.csv")
-
-#filter to hpb
-ccr_flowmate <- rbind(Qedi, qL1) |> 
-  filter(Reservoir == "CCR", 
-         #Site == 101,
-         Site %in% c(100,101)
-        ) |>
-  mutate(DateTime = ymd_hms(DateTime),
-          Date = as.Date(DateTime)) |> 
-  mutate(L_s = Flow_cms * 1000) 
-
-
-#plot of flowmate data 
-ccr_flowmate |> ggplot(aes(x = Date, y = L_s))+ 
-  geom_point()+ geom_line()
+# #read in data
+# Qedi <- read.csv("https://pasta.lternet.edu/package/data/eml/edi/454/8/5edb79c2676d7b351d9eec184799c7dd")
+# qL1 <- read.csv("https://raw.githubusercontent.com/CareyLabVT/Reservoirs/refs/heads/master/Data/DataNotYetUploadedToEDI/Raw_Discharge/ManualDischarge_L1.csv")
+# 
+# #filter to hpb
+# ccr_flowmate <- rbind(Qedi, qL1) |> 
+#   filter(Reservoir == "CCR", 
+#          #Site == 101,
+#          Site %in% c(100,101)
+#         ) |>
+#   mutate(DateTime = ymd_hms(DateTime),
+#           Date = as.Date(DateTime)) |> 
+#   mutate(L_s = Flow_cms * 1000) 
+# 
+# 
+# #plot of flowmate data 
+# ccr_flowmate |> ggplot(aes(x = Date, y = L_s))+ 
+#   geom_point()+ geom_line()
 
 
 
