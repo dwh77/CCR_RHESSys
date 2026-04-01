@@ -9,3 +9,6 @@ CCR_RHESSys.Rproj
 /Maps/
 /Data_sources/
 out
+Data_PreProcessing/HPB_stage_chem_data.csv
+rhutils_trials/NLCD
+rhutils_trials/spatial_source
